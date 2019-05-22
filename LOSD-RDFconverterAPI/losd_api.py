@@ -5,10 +5,23 @@ import rdflib
 from losd_conversion import RDFConversion
 import os
 
+
 losd_api = Flask(__name__)
 
 
+def _check_respose_status(conversion_response):
+    """
+    This checks the if the json-stat is converted to rdf without any errors.
+    """
+    if conversion_response['status'] == 200:
+        return True
+    return False
+
+
 def _rdf_serialize(response):
+    """
+    Serialize the content in n3 form to json-ld
+    """
     graph = rdflib.Graph()
     try:
         rdf_triple_data = response['rdf_content']
@@ -19,18 +32,24 @@ def _rdf_serialize(response):
         losd_api.logger.error("Could not parse to json-ld format: {}".format(str(e)))
 
 
-def _make_response(op_format, conversion_response):
-
+def _make_response(op_format, conversion_response): 
+    """
+    Make response based on the requested output format either text response or json-ld response.
+    Also set necessary headers.
+    """
+    
     headers_content_type = {'json-ld': 'application/json-ld', 'text': 'text/xml', 'xml': 'text/xml'}
-    #losd_api.logger.info(conversion_response)
+
     losd_api.logger.info(conversion_response['status'])
-    if conversion_response['status'] != 200:
+    
+    if not _check_respose_status(conversion_response):
         status = conversion_response['status']
         resp = make_response(jsonify(conversion_response), status)
         resp.headers['Content-Type'] = headers_content_type.get(op_format.strip(), 'text/xml')
 
     else:
         losd_api.logger.info(op_format)
+
         if op_format and op_format.lower().strip() == 'json-ld':
             json_ld = _rdf_serialize(conversion_response)
             resp = make_response(json_ld, 200)
@@ -41,19 +60,23 @@ def _make_response(op_format, conversion_response):
             resp.headers['Content-Type'] = headers_content_type.get(op_format.strip(), 'text/xml')
 
     resp.headers['Access-Control-Allow-Origin'] = '*'
+
     return resp
 
 
 def check_auth(username, password):
-    """This function is called to check if a username /
-    password combination is valid.
+    """
+    This function is called to check if a username
+    password combination is valid. There is not database hence check manually - string matching.
     """
     losd_api.logger.info(str(os.environ['RDFAPI_PWD']))
     losd_api.logger.info(str(os.environ['RDFAPI_USERNAME']))
-    losd_api.logger.info(str(username).strip() == str(os.environ['RDFAPI_USERNAME']) and str(password).strip() == str(os.environ['RDFAPI_PWD']))
+    losd_api.logger.info(str(username).strip() == str(os.environ['RDFAPI_USERNAME']) and str(password).strip()
+                         == str(os.environ['RDFAPI_PWD']))
     losd_api.logger.info(password)
     losd_api.logger.info(username)
-    return str(username).strip() == str(os.environ['RDFAPI_USERNAME']) and str(password).strip() == str(os.environ['RDFAPI_PWD'])
+    return str(username).strip() == str(os.environ['RDFAPI_USERNAME']) and str(password).strip() \
+           == str(os.environ['RDFAPI_PWD'])
 
 
 def authenticate():
@@ -63,6 +86,7 @@ def authenticate():
                     {'WWW-Authenticate': 'Basic realm="Login Required"'})
 
 
+# Authentication wrapper function
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -75,9 +99,14 @@ def requires_auth(f):
     return decorated
 
 
+# Main route to the conversion
 @losd_api.route('/convert_to_rdf', methods=['POST', 'GET'])
 @requires_auth
 def rdf_conversion_api():
+    """
+    Conversion takes place nonly during post response.
+    On GET - give the instrunction on how to use this API
+    """
 
     if request.method == 'POST':
         datasetid = request.args.get('DatasetId', '')
@@ -87,7 +116,8 @@ def rdf_conversion_api():
         file_content = request.args.get('Content', '')
         output_format = request.args.get('OutputFormat', '')
 
-        conversion = RDFConversion(datasetid, vocabulary_namespace, data_namespace, file_url, file_content)
+        conversion = RDFConversion(datasetid, vocabulary_namespace, data_namespace, file_url, file_content,
+                                   push_to_rdf_store, request.args)
         conversion_response = conversion.convert()
         resp = _make_response(output_format, conversion_response)
 

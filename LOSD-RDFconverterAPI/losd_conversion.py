@@ -5,12 +5,14 @@ import re
 import urllib2
 from collections import OrderedDict
 import uuid
+from PushToRDFStore import pushToRDFStore
+from losd_validators import Validator
 
 
 class RDFConversion(Validator):
 
-    def __init__(self, datasetid, vocabulary_namespace, data_namespace, file_url, content):
-        Validator.__init__(self, datasetid, vocabulary_namespace, data_namespace, file_url, content)
+    def __init__(self, datasetid, vocabulary_namespace, data_namespace, file_url, content, request_dict):
+        Validator.__init__(self, datasetid, vocabulary_namespace, data_namespace, file_url, content, request_dict)
 
     def _get_content(self):
 
@@ -443,9 +445,30 @@ class RDFConversion(Validator):
 
     def convert(self):
 
+        """"
+        Calls the respective conversion function and push to rdf store function. If any one of them is failed
+        give response as 400 - failed
+        """
+
         validation_failed = Validator.validate_fail(self)
 
         if validation_failed:
             return validation_failed
         else:
-            return self._convert_to_rdf()
+
+            rdf_conversion_response = self._convert_to_rdf()
+
+            if (rdf_conversion_response['status'] == 200) and (
+                    Validator.boolean_converter(self.request_dict.get('PushToRDFStore', ''))):
+                push_response = pushToRDFStore(self.request_dict, rdf_conversion_response)
+
+                if push_response['status'] == 200:
+                    rdf_conversion_response['rdfStore_Status'] = 200
+                    rdf_conversion_response['rdfStore_Message'] = 'Pushed to rdf store successfully'
+                else:
+                    rdf_conversion_response['status'] = push_response['status']
+                    rdf_conversion_response['Message'] = "Conversion successful but push to rdf store failed"
+                    rdf_conversion_response['Error'] = push_response['ErrorMessage']
+                    rdf_conversion_response['ErrorType'] = push_response['ErrorType']
+
+            return rdf_conversion_response
