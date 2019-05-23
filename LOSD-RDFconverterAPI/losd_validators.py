@@ -76,11 +76,11 @@ class Validator:
 
         if (not self.datasetid) or (not self.vocabulary_namespace) or \
                 (not self.data_namespace):
-            logger.debug("missing required parameter")
+            logger.info("missing required parameter")
             return Validator.validator_response.get('null_parameter_error')
 
         if (not self.file_url) and (not self.file_content):
-            logger.debug("missing required parameter")
+            logger.info("missing required parameter")
             return Validator.validator_response.get('null_parameter_error')
 
         return ""
@@ -99,7 +99,7 @@ class Validator:
 
             self.datasetid = self.datasetid.strip().replace(" ", "_").lower()
         except Exception as e:
-            logging.debug("This error is from datasetid_validator: {}".format(str(e)))
+            logging.error("This error is from datasetid_validator: {}".format(str(e)))
             return Validator.validator_response.get('dataset_id_error')
 
         if self.datasetid.strip():
@@ -107,7 +107,7 @@ class Validator:
         else:
             val = Validator.validator_response.get('dataset_id_error')
             val['ErrorMessage'] = 'Dataset Id cannot be empty or special characters'
-            logger.debug("dastaset id validation failed")
+            logger.error("dastaset id validation failed")
             return val
 
     def vocab_namespace_validator(self):
@@ -151,7 +151,7 @@ class Validator:
         else:
             val = Validator.validator_response.get('file_content_error')
             val['ErrorMessage'] = 'File content cannot be empty'
-            logger.debug('Empty json-stat content')
+            logger.error('Empty json-stat content')
             return val
 
     def file_url_validator(self):
@@ -171,7 +171,7 @@ class Validator:
                 logger.error('file url error {}'.format(str(val)))
                 return val
         else:
-            logger.debug('file url error')
+            logger.error('file url error')
             return Validator.validator_response.get('file_url_error')
 
     @staticmethod
@@ -203,7 +203,9 @@ class Validator:
         Checks only if PushToRDFStore is True
         :return: Null if validations is successful
         """
-        request_parms = self.request_dict
+        request_parms = dict(self.request_dict)
+        logger.info("********* Request Parameters ************")
+        logger.info(request_parms)
 
         rdf_store_values = ('PushToRDFStore', 'RDFStoreURL', 'RDFStoreUserName', 'RDFStorePassword', 'RDFStoreGraphURI')
 
@@ -212,7 +214,9 @@ class Validator:
             for rdf_val in rdf_store_values:
                 if not request_parms.get(rdf_val, ''):
                     return Validator.validator_response.get('null_parameter_error')
-                elif rdf_val in ('RDFStoreURL', 'RDFStoreGraphURI'):
+                if rdf_val in ('RDFStoreURL', 'RDFStoreGraphURI') and (
+                        not Validator.url_validator(request_parms.get(rdf_val, ''))):
+
                     return Validator.validator_response.get('URLError')
 
         return ""
@@ -223,8 +227,8 @@ class Validator:
         :return: Null if validation is successful else json response of errors.
         """
 
-        exec_methods = ("check_empty_fields", "datasetid_validator", "vocab_namespace_validator",
-                        "data_namespace_vaidator", 'rdf_store_validator')
+        exec_methods = ["check_empty_fields", "datasetid_validator", "vocab_namespace_validator",
+                        "data_namespace_vaidator", 'rdf_store_validator']
 
         if self.file_url:
             exec_methods.append("file_url_validator")

@@ -5,7 +5,7 @@ import re
 import urllib2
 from collections import OrderedDict
 import uuid
-from PushToRDFStore import pushToRDFStore
+from PushToRdfStore import pushToRDFStore
 from losd_validators import Validator
 
 

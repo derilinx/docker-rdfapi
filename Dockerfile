@@ -5,7 +5,7 @@ RUN . /losd-env/bin/activate
 COPY ./LOSD-RDFconverterAPI /LOSD-RDFconverterAPI
 WORKDIR /LOSD-RDFconverterAPI
 RUN pip install -r requirements.txt
+COPY ./LOSD-RDFconverterAPI/supervisor_app.conf /etc/supervisor_app.conf
 EXPOSE 5000
-ENTRYPOINT ["python"]
-CMD ["losd_api.py"]
+CMD ["uwsgi", "/LOSD-RDFconverterAPI/losd_api.ini"]
 

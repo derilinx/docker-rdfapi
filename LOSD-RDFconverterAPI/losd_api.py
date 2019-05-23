@@ -109,6 +109,10 @@ def rdf_conversion_api():
     """
 
     if request.method == 'POST':
+        
+        losd_api.logger.info("********** Route Request Paramns **************")
+        losd_api.logger.info(request.args)
+
         datasetid = request.args.get('DatasetId', '')
         vocabulary_namespace = request.args.get('VocabNmSpace', '')
         data_namespace = request.args.get('DataNmSpace', '')
@@ -117,7 +121,7 @@ def rdf_conversion_api():
         output_format = request.args.get('OutputFormat', '')
 
         conversion = RDFConversion(datasetid, vocabulary_namespace, data_namespace, file_url, file_content,
-                                   push_to_rdf_store, request.args)
+                                   request.args)
         conversion_response = conversion.convert()
         resp = _make_response(output_format, conversion_response)
 
@@ -135,7 +139,14 @@ def rdf_conversion_api():
                                                      'FileURL': "You can give a valid link to json stat file "
                                                                  "(optional)",
                                                      'Content': "You can also give json stat content as text.",
-                                                     'OutputFormat': 'text or json-ld'},
+                                                     'OutputFormat': 'text or json-ld',
+                                                     'PushToRDFStore': 'True or False. If True parameters RDFStoreURL, '
+                                                                       'RDFStoreUserName, RDFStorePassword, '
+                                                                       'RDFStoreGraphURI should be given',
+                                                     'RDFStoreURL': 'RDF Store/Virtuoso URL',
+                                                     'RDFStoreUserName': 'RDF Store username',
+                                                     'RDFStorePassword': 'RDF store password',
+                                                     'RDFStoreGraphURI': 'URI '},
                                       "Tips": "You can send either file url or content of the json-stat to this api. "
                                               "OutputFormat=text is lot faster than json-ld"}))
         return resp

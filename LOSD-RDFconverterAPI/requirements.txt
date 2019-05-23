@@ -22,3 +22,4 @@ urllib3==1.24.1
 validators==0.12.4
 webencodings==0.5.1
 werkzeug==0.14.1
+uwsgi

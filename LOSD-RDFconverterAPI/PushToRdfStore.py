@@ -1,10 +1,21 @@
 from losd_validators import Validator as validator
 import os
 import tempfile
-import logging as log
+import logging
+import requests
+from requests.auth import HTTPDigestAuth
+import tempfile
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def _change_rdfstore_url(val):
+    """
+    Check if url ends with /
+    :param val: URL String
+    :return: Modified URL with / at the end.
+    """
     if val[-1] == '/':
         return val
     else:
@@ -22,23 +33,37 @@ def pushToRDFStore(request_dict, rdf_conversion_response):
     """
 
     push_stat = {}
+    request_dict = dict(request_dict)
+    logger.info("Push to rdf store request parameters".format(request_dict))
 
-    rdfStoreURL = request_dict.get('RDFStoreURL', '').strip()
-    rdfStoreUser = request_dict.get('RDFStoreUserName', '').strip()
-    rdfStorePass = request_dict.get('RDFStorePassword', '').strip()
-    graphIRI = request_dict.get('RDFStoreGraphURI', '').strip()
-    converted_content = rdf_conversion_response.get('rdf_content').strip()
+    rdfStoreURL = request_dict.get('RDFStoreURL', '')[0].strip()
+    rdfStoreUser = request_dict.get('RDFStoreUserName', '')[0].strip()
+    rdfStorePass = request_dict.get('RDFStorePassword', '')[0].strip()
+    graphIRI = request_dict.get('RDFStoreGraphURI', '')[0].strip()
+    converted_content = rdf_conversion_response.get('rdf_content')
 
+    graphIRI = _change_rdfstore_url(graphIRI)
     rdfStoreURL = _change_rdfstore_url(rdfStoreURL)
 
     push_url = rdfStoreURL + '/sparql-graph-crud-auth?graph-uri=' + graphIRI
 
     try:
 
-        log.debug("RDF store push url: {}".format(push_url))
-        response = requests.post(push_url, data=converted_content, auth=HTTPDigestAuth(rdfStoreUser, rdfStorePass))
+        temp_ttl = tempfile.NamedTemporaryFile(suffix='.ttl', delete=False)
+        logger.info("Created a new temporary file: {}".format(temp_ttl.name))
+        with open(temp_ttl.name, 'w') as ttl:
+            ttl.write(converted_content)
+            ttl.close()
 
+        logger.info("RDF store push url: {}".format(push_url))
+        headers = {'Content-type': 'text/rdf+ttl'}
+        response = requests.post(push_url, data=open(temp_ttl.name, 'r').read(),
+                                 auth=HTTPDigestAuth(rdfStoreUser, rdfStorePass), headers=headers)
+        os.remove(temp_ttl.name)
+        logger.info("Removed a temporary file")
         status_code = str(response.status_code)
+        logger.info("RDF store push status: {}".format(status_code))
+        logger.info("response text: {}".format(response.text))
 
         if (status_code == '201') or (status_code == '200'):
 
@@ -77,4 +102,7 @@ def pushToRDFStore(request_dict, rdf_conversion_response):
         return validator.validator_response.get('SystemError')
 
     except OSError:
+        return validator.validator_response.get('OSError')
+    except Exception as e:
+        logger.error('Exception while pushing to rdf store: {}'.format(str(e)))
         return validator.validator_response.get('OSError')
