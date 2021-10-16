@@ -5,6 +5,8 @@ import logging
 import requests
 from requests.auth import HTTPDigestAuth
 import tempfile
+import traceback
+import sys
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -33,13 +35,13 @@ def pushToRDFStore(request_dict, rdf_conversion_response):
     """
 
     push_stat = {}
-    request_dict = dict(request_dict)
+    #request_dict = dict(request_dict)
     logger.info("Push to rdf store request parameters".format(request_dict))
 
-    rdfStoreURL = request_dict.get('RDFStoreURL', '')[0].strip()
-    rdfStoreUser = request_dict.get('RDFStoreUserName', '')[0].strip()
-    rdfStorePass = request_dict.get('RDFStorePassword', '')[0].strip()
-    graphIRI = request_dict.get('RDFStoreGraphURI', '')[0].strip()
+    rdfStoreURL = request_dict.get('RDFStoreURL', '').strip()
+    rdfStoreUser = request_dict.get('RDFStoreUserName', '').strip()
+    rdfStorePass = request_dict.get('RDFStorePassword', '').strip()
+    graphIRI = request_dict.get('RDFStoreGraphURI', '').strip()
     converted_content = rdf_conversion_response.get('rdf_content')
 
     graphIRI = _change_rdfstore_url(graphIRI)
@@ -51,13 +53,13 @@ def pushToRDFStore(request_dict, rdf_conversion_response):
 
         temp_ttl = tempfile.NamedTemporaryFile(suffix='.ttl', delete=False)
         logger.info("Created a new temporary file: {}".format(temp_ttl.name))
-        with open(temp_ttl.name, 'w') as ttl:
+        with open(temp_ttl.name, 'w', encoding='utf-8') as ttl:
             ttl.write(converted_content)
             ttl.close()
 
         logger.info("RDF store push url: {}".format(push_url))
         headers = {'Content-type': 'text/rdf+ttl'}
-        response = requests.post(push_url, data=open(temp_ttl.name, 'r').read(),
+        response = requests.post(push_url, data=open(temp_ttl.name, 'r', encoding='utf-8').read(),
                                  auth=HTTPDigestAuth(rdfStoreUser, rdfStorePass), headers=headers)
         os.remove(temp_ttl.name)
         logger.info("Removed a temporary file")
@@ -99,10 +101,13 @@ def pushToRDFStore(request_dict, rdf_conversion_response):
         return validator.validator_response.get('RequestException')
 
     except SystemError:
+        traceback.print_exc(file=sys.stdout)
         return validator.validator_response.get('SystemError')
 
     except OSError:
+        traceback.print_exc(file=sys.stdout)
         return validator.validator_response.get('OSError')
     except Exception as e:
+        traceback.print_exc(file=sys.stdout)
         logger.error('Exception while pushing to rdf store: {}'.format(str(e)))
         return validator.validator_response.get('OSError')

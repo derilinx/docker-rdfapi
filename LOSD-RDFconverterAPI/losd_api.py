@@ -1,4 +1,4 @@
-from __future__ import print_function
+# -*- coding: utf-8 -*-
 from flask import request, Flask, abort, Response, send_file, make_response, jsonify
 from functools import wraps
 import rdflib
@@ -111,17 +111,17 @@ def rdf_conversion_api():
     if request.method == 'POST':
         
         losd_api.logger.info("********** Route Request Paramns **************")
-        losd_api.logger.info(request.args)
+        losd_api.logger.info(dict(request.args))
+        req = dict(request.args)
 
-        datasetid = request.args.get('DatasetId', '')
-        vocabulary_namespace = request.args.get('VocabNmSpace', '')
-        data_namespace = request.args.get('DataNmSpace', '')
-        file_url = request.args.get('FileURL', '')
-        file_content = request.args.get('Content', '')
-        output_format = request.args.get('OutputFormat', '')
+        datasetid = req.get('DatasetId', '')
+        vocabulary_namespace = req.get('VocabNmSpace', '')
+        data_namespace = req.get('DataNmSpace', '')
+        file_url = req.get('FileURL', '')
+        file_content = req.get('Content', '')
+        output_format = req.get('OutputFormat', '')
 
-        conversion = RDFConversion(datasetid, vocabulary_namespace, data_namespace, file_url, file_content,
-                                   request.args)
+        conversion = RDFConversion(datasetid, vocabulary_namespace, data_namespace, file_url, file_content, req)
         conversion_response = conversion.convert()
         resp = _make_response(output_format, conversion_response)
 

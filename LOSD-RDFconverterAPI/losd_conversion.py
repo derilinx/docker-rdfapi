@@ -1,12 +1,19 @@
+# -*- coding: utf-8 -*-
 from losd_validators import Validator
 import json
 import string
 import re
-import urllib2
+from urllib.request import urlopen
 from collections import OrderedDict
 import uuid
 from PushToRdfStore import pushToRDFStore
 from losd_validators import Validator
+import logging
+import traceback
+import sys
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class RDFConversion(Validator):
@@ -17,7 +24,7 @@ class RDFConversion(Validator):
     def _get_content(self):
 
         if self.file_url:
-            source_json = json.loads(urllib2.urlopen(self.file_url).read(), object_pairs_hook=OrderedDict)
+            source_json = json.loads(urlopen(self.file_url).read().decode('utf-8'), object_pairs_hook=OrderedDict)
         else:
             source_json = json.loads(self.file_content)
 
@@ -27,8 +34,9 @@ class RDFConversion(Validator):
 
         """ For cleaning the space - replace space by _"""
 
-        s = str(re.sub(r'\([^)]*\)', '', s.encode('utf-8')))
-        s = s.translate(None, string.punctuation)
+        s = str(re.sub(r'\([^)]*\)', '', s))
+        translator = str.maketrans('', '', string.punctuation)
+        s = s.translate(translator)
 
         return s.strip().replace(" ", "_").lower()
 
@@ -110,8 +118,7 @@ class RDFConversion(Validator):
 
                 for data_field_nm in dimensions['id']:
                     scheme.append('' + vocabulary_namespace_prefix + ':' + _cleanString(
-                        data_field_nm) + ' a qb:ComponentProperty, qb:DimensionProperty ;\n\trdfs:label "' + data_field_nm.encode(
-                        'utf-8') + '" ;\n\trdfs:range xsd:string .\n\n')
+                        data_field_nm) + ' a qb:ComponentProperty, qb:DimensionProperty ;\n\trdfs:label "' + data_field_nm + '" ;\n\trdfs:range xsd:string .\n\n')
 
                 scheme.append(
                     '' + vocabulary_namespace_prefix + ':value a qb:ComponentProperty, qb:MeasureProperty ;\n\trdfs:label "value" ;\n\trdfs:range xsd:float .\n\n')
@@ -142,7 +149,7 @@ class RDFConversion(Validator):
                 scheme.append('' + data_namespace_prefix + ':' + _cleanString(dataset_label) +
                               '_dataset a qb:DataSet ;\n\tqb:structure ' + data_namespace_prefix + ':' +
                               _cleanString(dataset_label) + '_dsd ;\n\trdfs:label "' + \
-                              dataset_label.encode('utf-8') + '" ; \n\tprov:generatedAtTime "' + dataset_updated
+                              dataset_label + '" ; \n\tprov:generatedAtTime "' + dataset_updated
                               + '"^^xsd:dateTime ;\n\tdc:creator "' + dataset_source + '" .\n\n')
 
                 # Generating Codelist
@@ -171,7 +178,7 @@ class RDFConversion(Validator):
                         concept = dimensions[data_field_nm]['category']['label'][k]
                         code_list.append(
                             '' + self._prefix_build_concept(data_namespace_prefix, data_field_nm) + self._cleanString(concept) +
-                            ' a skos:Concept ;\n\trdfs:label "' + concept.encode('utf-8') + '" .\n\n')
+                            ' a skos:Concept ;\n\trdfs:label "' + concept + '" .\n\n')
 
                 # Generating Observations
 
@@ -198,7 +205,7 @@ class RDFConversion(Validator):
 
                 # Observations: creating each
 
-                for t in xrange(total_size):
+                for t in range(total_size):
                     observations.append(data_namespace_prefix + ':' + str(
                         uuid.uuid4()) + ' a qb:Observation ;\n\tqb:dataSet ' + data_namespace_prefix + ':' +
                                         _cleanString(dataset_label) + '_dataset ;\n\tqb:measureType ' +
@@ -212,7 +219,7 @@ class RDFConversion(Validator):
 
                     tracker[track_size - 1] += 1
 
-                    for i in xrange(track_size - 1, -1, -1):
+                    for i in range(track_size - 1, -1, -1):
                         if i != 0:
                             if tracker[i] > size[i] - 1:
                                 tracker[i] = 0
@@ -226,7 +233,8 @@ class RDFConversion(Validator):
                                         str(dataset_values[t]) + '"^^xsd:float\n . \n\n')
 
             except Exception as e:
-
+                traceback.print_exc(file=sys.stdout)
+                logger.error("Errort status code - Mssg: {}".format(str(e)))
                 job_result['status'] = 500
                 job_result['Error'] = str(e)
                 job_result['version'] = "old"
@@ -289,8 +297,7 @@ class RDFConversion(Validator):
 
                 for data_field_nm in field_nms:
                     scheme.append('' + vocabulary_namespace_prefix + ':' + _cleanString(
-                        data_field_nm) + ' a qb:ComponentProperty, qb:DimensionProperty ;\n\trdfs:label "' + data_field_nm.encode(
-                        'utf-8') + '" ;\n\trdfs:range xsd:string .\n\n')
+                        data_field_nm) + ' a qb:ComponentProperty, qb:DimensionProperty ;\n\trdfs:label "' + data_field_nm  + '" ;\n\trdfs:range xsd:string .\n\n')
 
                     scheme.append(
                         '' + vocabulary_namespace_prefix + ':value a qb:ComponentProperty, qb:MeasureProperty ;'
@@ -322,7 +329,7 @@ class RDFConversion(Validator):
                 scheme.append('' + data_namespace_prefix + ':' + _cleanString(dataset_label) +
                               '_dataset a qb:DataSet ;\n\tqb:structure ' + data_namespace_prefix + ':' +
                               _cleanString(dataset_label) + '_dsd ;\n\trdfs:label "' + \
-                              dataset_label.encode('utf-8') + '" ; \n\tprov:generatedAtTime "' + dataset_updated
+                              dataset_label + '" ; \n\tprov:generatedAtTime "' + dataset_updated
                               + '"^^xsd:dateTime ;\n\tdc:creator "' + dataset_source + '" .\n\n')
 
                 # Generating Code list
@@ -356,7 +363,7 @@ class RDFConversion(Validator):
                             code_list.append(
                                 '' + _prefix_build_concept(data_namespace_prefix, data_field_nm) + _cleanString(
                                     concept) +
-                                ' a skos:Concept ;\n\trdfs:label "' + concept.encode('utf-8') + '" .\n\n')
+                                ' a skos:Concept ;\n\trdfs:label "' + concept + '" .\n\n')
 
                 # Generating Observations
 
@@ -383,7 +390,7 @@ class RDFConversion(Validator):
 
                 # Observations: creating each
 
-                for t in xrange(total_size):
+                for t in range(total_size):
                     observations.append(data_namespace_prefix + ':' + str(
                         uuid.uuid4()) + ' a qb:Observation ;\n\tqb:dataSet ' + data_namespace_prefix + ':' +
                                         _cleanString(dataset_label) + '_dataset ;\n\tqb:measureType ' +
@@ -402,7 +409,7 @@ class RDFConversion(Validator):
 
                     tracker[track_size - 1] += 1
 
-                    for i in xrange(track_size - 1, -1, -1):
+                    for i in range(track_size - 1, -1, -1):
                         if i != 0:
                             if tracker[i] > size[i] - 1:
                                 tracker[i] = 0
@@ -416,7 +423,8 @@ class RDFConversion(Validator):
                                         str(dataset_values[t]) + '"^^xsd:float\n . \n\n')
 
             except Exception as e:
-
+                traceback.print_exc(file=sys.stdout)
+                logger.error("Errort status code - Mssg: {}".format(str(e)))
                 job_result['status'] = 500
                 job_result['Error'] = str(e)
                 job_result['version'] = "New"
@@ -449,7 +457,8 @@ class RDFConversion(Validator):
         Calls the respective conversion function and push to rdf store function. If any one of them is failed
         give response as 400 - failed
         """
-
+        logger.info("************** push to rdf store parameters **********************")
+        logger.info(self.request_dict)
         validation_failed = Validator.validate_fail(self)
 
         if validation_failed:

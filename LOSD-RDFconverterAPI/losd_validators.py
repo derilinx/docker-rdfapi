@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
 import json
 import validators
-import urllib2
+#import urllib2
+from urllib.request import urlopen
 from collections import OrderedDict
 import re
 import string
@@ -91,11 +93,13 @@ class Validator:
         For cleaning the space, punctuations, special characters from dataset id - replace space by _
         :return: null (i.e. stores the cleaned dataset id) or error response
         """
+        logging.info("dataset id *************************: {}".format(self.datasetid))
 
         try:
 
-            self.datasetid = str(re.sub(r'\([^)]*\)', '', self.datasetid.encode('utf-8')))
-            self.datasetid = self.datasetid.translate(None, string.punctuation)
+            self.datasetid = str(re.sub(r'\([^)]*\)', '', self.datasetid))
+            translator=str.maketrans('','',string.punctuation)
+            self.datasetid = self.datasetid.translate(translator)
 
             self.datasetid = self.datasetid.strip().replace(" ", "_").lower()
         except Exception as e:
@@ -162,7 +166,7 @@ class Validator:
 
         if bool(validators.url(self.file_url)):
             try:
-                json.loads(urllib2.urlopen(self.file_url).read(), object_pairs_hook=OrderedDict)
+                json.loads(urlopen(self.file_url).read().decode('utf-8'), object_pairs_hook=OrderedDict)
                 return ""
             except Exception as e:
                 logging.debug("This error is from file_url_validato: {}".format(str(e)))
@@ -195,6 +199,7 @@ class Validator:
         :param val: string
         :return: True or False
         """
+        logger.info("url validator ********* {}:{}".format(bool(validators.url(val)), type(val)))
         return bool(validators.url(val))
 
     def rdf_store_validator(self):
@@ -203,7 +208,7 @@ class Validator:
         Checks only if PushToRDFStore is True
         :return: Null if validations is successful
         """
-        request_parms = dict(self.request_dict)
+        request_parms = self.request_dict
         logger.info("********* Request Parameters ************")
         logger.info(request_parms)
 
@@ -216,6 +221,8 @@ class Validator:
                     return Validator.validator_response.get('null_parameter_error')
                 if rdf_val in ('RDFStoreURL', 'RDFStoreGraphURI') and (
                         not Validator.url_validator(request_parms.get(rdf_val, ''))):
+                    logger.info("**********rdfstore validator **********")
+                    logger.info("****rdfstore validator****** {}:{}".format(rdf_val, request_parms))    
 
                     return Validator.validator_response.get('URLError')
 
